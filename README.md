@@ -175,6 +175,7 @@ Marketing-oriented questions for the connected assistant:
 | --- | --- | --- | --- |
 | `MCP_PORT` | no | `3334` | TCP port. |
 | `LOG_LEVEL` | no | `info` | One of `debug`, `info`, `warn`, `error`. |
+| `UMAMI_URL_ALLOWLIST` | no | unset | Comma-separated origin allowlist for `X-Umami-Url`. When set, requests with non-matching URLs are rejected with `403`. Wildcards via `*` (one host segment). Example: `https://*.example.com,https://umami.acme.io`. |
 
 Umami credentials are not configured via env — they are passed by each
 client via `X-Umami-*` request headers. See [Authentication](#authentication).
@@ -192,6 +193,11 @@ client via `X-Umami-*` request headers. See [Authentication](#authentication).
   behind a load balancer if needed — sessions are sticky via the
   `Mcp-Session-Id` header, so terminate sessions on the same backend
   (or accept that a reconnect re-initializes a session).
+- **SSRF guard (public deployments)**: by default the server connects to
+  any URL provided in `X-Umami-Url`. When exposing the server on a public
+  network, set `UMAMI_URL_ALLOWLIST` to a comma-separated list of
+  permitted origins (wildcards via `*`). Combine with a TLS-terminating
+  reverse proxy and rate limiting before going public.
 - **Image**: pin a digest in production (`ghcr.io/mittwald/umami-mcp@sha256:…`)
   rather than `:latest`.
 - **Graceful shutdown**: `SIGTERM`/`SIGINT` close all open MCP sessions and

@@ -7,7 +7,7 @@ import {
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
-import { HOST, loadConfig, UmamiCredentials } from './config.js';
+import { HOST, isUrlAllowed, loadConfig, UmamiCredentials } from './config.js';
 import { logger } from './logger.js';
 import { tools } from './tools.js';
 import { UmamiApiError, UmamiClient } from './umami-client.js';
@@ -174,6 +174,13 @@ const httpServer = createServer(async (req: IncomingMessage, res: ServerResponse
         return;
       }
 
+      if (!isUrlAllowed(credentials.url, config.urlAllowlist)) {
+        mcpStatus = 403;
+        logger.warn('credentials.url.rejected', { url: credentials.url });
+        sendError(res, 403, 'Provided X-Umami-Url is not in the server allowlist.');
+        return;
+      }
+
       const client = new UmamiClient(credentials);
       const transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: () => randomUUID(),
@@ -222,6 +229,7 @@ httpServer.listen(config.port, HOST, () => {
     port: config.port,
     endpoint: `/mcp`,
     version: VERSION,
+    urlAllowlist: config.urlAllowlist.length > 0 ? config.urlAllowlist : 'disabled',
   });
 });
 
