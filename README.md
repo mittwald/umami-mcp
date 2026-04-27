@@ -3,6 +3,23 @@
 Streamable-HTTP [MCP](https://modelcontextprotocol.io) server for
 [Umami Analytics](https://umami.is). Read-only, 8 tools, runs in a container.
 
+## Table of contents
+
+- [Run in Docker](#run-in-docker)
+- [Authentication](#authentication)
+- [Connect from your client](#connect-from-your-client)
+  - [Claude Code](#claude-code)
+  - [Claude Desktop](#claude-desktop)
+  - [Cursor](#cursor)
+  - [n8n](#n8n)
+  - [VS Code (Copilot Chat)](#vs-code-copilot-chat)
+  - [MCP Inspector (debug)](#mcp-inspector-debug)
+- [Tools](#tools)
+- [Example prompts](#example-prompts)
+- [Configuration](#configuration)
+- [Operations](#operations)
+- [Development](#development)
+
 ## Run in Docker
 
 Published image: **`ghcr.io/mittwald/umami-mcp:latest`** (tags: `latest`, `0.1.0`).
