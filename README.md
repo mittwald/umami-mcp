@@ -77,20 +77,21 @@ claude mcp add umami http://127.0.0.1:3334/mcp --transport http \
 
 ### Claude Desktop
 
-> The Connectors UI in Claude Desktop currently doesn't support custom HTTP
-> headers. Since this server expects `X-Umami-*` headers, you have to edit
-> the config file directly.
+> Claude Desktop's stable config only accepts **stdio** MCP servers. To
+> use this HTTP-based server, bridge it via the `mcp-remote` shim
+> (auto-installed by `npx`). This also lets you pass the required
+> `X-Umami-*` headers, which the Connectors UI doesn't support.
 
 **Step-by-step:**
 
 1. Quit Claude Desktop (`⌘Q` on macOS · right-click tray → Quit on Win/Linux).
 2. Open the config file:
 
-| OS | Path |
-| --- | --- |
-| macOS | `~/Library/Application Support/Claude/claude_desktop_config.json` |
-| Windows | `%APPDATA%\Claude\claude_desktop_config.json` |
-| Linux | `~/.config/Claude/claude_desktop_config.json` |
+   | OS | Path |
+   | --- | --- |
+   | macOS | `~/Library/Application Support/Claude/claude_desktop_config.json` |
+   | Windows | `%APPDATA%\Claude\claude_desktop_config.json` |
+   | Linux | `~/.config/Claude/claude_desktop_config.json` |
 
 3. Add (or merge into) `mcpServers`:
 
@@ -98,24 +99,31 @@ claude mcp add umami http://127.0.0.1:3334/mcp --transport http \
    {
      "mcpServers": {
        "umami": {
-         "type": "http",
-         "url": "http://127.0.0.1:3334/mcp",
-         "headers": {
-           "X-Umami-Url": "https://umami.example.com",
-           "X-Umami-Username": "youruser",
-           "X-Umami-Password": "yourpass"
-         }
+         "command": "npx",
+         "args": [
+           "-y",
+           "mcp-remote",
+           "http://127.0.0.1:3334/mcp",
+           "--header",
+           "X-Umami-Url: https://umami.example.com",
+           "--header",
+           "X-Umami-Username: youruser",
+           "--header",
+           "X-Umami-Password: yourpass"
+         ]
        }
      }
    }
    ```
 
-4. Save the file and reopen Claude Desktop.
+4. Save the file and reopen Claude Desktop. The first launch downloads
+   `mcp-remote` (one-time, ~5 s).
 5. Open a new chat → type `/mcp` and press Enter. `umami` should appear with
    status **connected** and 8 tools listed.
 
 If it shows **failed**: check that the MCP server is running
-(`curl http://127.0.0.1:3334/health` → `{"ok": true}`).
+(`curl http://127.0.0.1:3334/health` → `{"ok": true}`) and that Node.js is
+installed system-wide (`npx` must be on your PATH).
 
 ### Cursor
 
