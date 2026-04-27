@@ -60,8 +60,35 @@ claude mcp add umami http://127.0.0.1:3334/mcp --transport http \
 
 ### Claude Desktop
 
-`~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) /
-`%APPDATA%\Claude\claude_desktop_config.json` (Windows):
+**Option A — UI (recommended, click-by-click):**
+
+1. Open **Claude Desktop**.
+2. Top menu: **Claude → Settings** (macOS: `⌘ + ,` · Windows/Linux: `Ctrl + ,`).
+3. Sidebar → **Connectors** (older versions: **Developer**).
+4. Click **Add custom connector** (or **Add MCP server**).
+5. Fill in:
+   - **Name**: `Umami`
+   - **Transport**: `HTTP` (Streamable)
+   - **URL**: `http://127.0.0.1:3334/mcp`
+   - **Headers** — add three:
+     - `X-Umami-Url` → `https://umami.example.com`
+     - `X-Umami-Username` → `youruser`
+     - `X-Umami-Password` → `yourpass`
+6. **Save** and **restart** Claude Desktop.
+7. New chat → click the 🔌 (plug) icon in the input box → tick **Umami**.
+8. Try: *"List my Umami websites."* The model should call `list_websites`.
+
+**Option B — JSON config (advanced, same result):**
+
+Open the config file:
+
+| OS | Path |
+| --- | --- |
+| macOS | `~/Library/Application Support/Claude/claude_desktop_config.json` |
+| Windows | `%APPDATA%\Claude\claude_desktop_config.json` |
+| Linux | `~/.config/Claude/claude_desktop_config.json` |
+
+Add (or merge into) `mcpServers`:
 
 ```json
 {
@@ -78,6 +105,14 @@ claude mcp add umami http://127.0.0.1:3334/mcp --transport http \
   }
 }
 ```
+
+Save and **fully quit Claude Desktop** (`⌘Q` / right-click tray → Quit), then reopen.
+
+**Verify the connection:**
+
+- Open a new chat.
+- Type `/mcp` and press Enter — `umami` should appear with status **connected** and 8 tools listed.
+- If it shows **failed**: check that the MCP server is running (`curl http://127.0.0.1:3334/health` → `{"ok": true}`).
 
 ### Cursor
 
