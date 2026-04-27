@@ -5,6 +5,7 @@
   "license": "MIT",
   "type": "module",
   "description": "MCP server exposing Umami Analytics via Streamable HTTP",
+  "author": "Tobias Wiesing <t.wiesing@mittwald.de> (https://github.com/twiesing)",
   "repository": {
     "type": "git",
     "url": "https://github.com/mittwald/umami-mcp.git"
