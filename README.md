@@ -77,27 +77,14 @@ claude mcp add umami http://127.0.0.1:3334/mcp --transport http \
 
 ### Claude Desktop
 
-**Option A — UI (recommended, click-by-click):**
+> The Connectors UI in Claude Desktop currently doesn't support custom HTTP
+> headers. Since this server expects `X-Umami-*` headers, you have to edit
+> the config file directly.
 
-1. Open **Claude Desktop**.
-2. Top menu: **Claude → Settings** (macOS: `⌘ + ,` · Windows/Linux: `Ctrl + ,`).
-3. Sidebar → **Connectors** (older versions: **Developer**).
-4. Click **Add custom connector** (or **Add MCP server**).
-5. Fill in:
-   - **Name**: `Umami`
-   - **Transport**: `HTTP` (Streamable)
-   - **URL**: `http://127.0.0.1:3334/mcp`
-   - **Headers** — add three:
-     - `X-Umami-Url` → `https://umami.example.com`
-     - `X-Umami-Username` → `youruser`
-     - `X-Umami-Password` → `yourpass`
-6. **Save** and **restart** Claude Desktop.
-7. New chat → click the 🔌 (plug) icon in the input box → tick **Umami**.
-8. Try: *"List my Umami websites."* The model should call `list_websites`.
+**Step-by-step:**
 
-**Option B — JSON config (advanced, same result):**
-
-Open the config file:
+1. Quit Claude Desktop (`⌘Q` on macOS · right-click tray → Quit on Win/Linux).
+2. Open the config file:
 
 | OS | Path |
 | --- | --- |
@@ -105,31 +92,30 @@ Open the config file:
 | Windows | `%APPDATA%\Claude\claude_desktop_config.json` |
 | Linux | `~/.config/Claude/claude_desktop_config.json` |
 
-Add (or merge into) `mcpServers`:
+3. Add (or merge into) `mcpServers`:
 
-```json
-{
-  "mcpServers": {
-    "umami": {
-      "type": "http",
-      "url": "http://127.0.0.1:3334/mcp",
-      "headers": {
-        "X-Umami-Url": "https://umami.example.com",
-        "X-Umami-Username": "youruser",
-        "X-Umami-Password": "yourpass"
-      }
-    }
-  }
-}
-```
+   ```json
+   {
+     "mcpServers": {
+       "umami": {
+         "type": "http",
+         "url": "http://127.0.0.1:3334/mcp",
+         "headers": {
+           "X-Umami-Url": "https://umami.example.com",
+           "X-Umami-Username": "youruser",
+           "X-Umami-Password": "yourpass"
+         }
+       }
+     }
+   }
+   ```
 
-Save and **fully quit Claude Desktop** (`⌘Q` / right-click tray → Quit), then reopen.
+4. Save the file and reopen Claude Desktop.
+5. Open a new chat → type `/mcp` and press Enter. `umami` should appear with
+   status **connected** and 8 tools listed.
 
-**Verify the connection:**
-
-- Open a new chat.
-- Type `/mcp` and press Enter — `umami` should appear with status **connected** and 8 tools listed.
-- If it shows **failed**: check that the MCP server is running (`curl http://127.0.0.1:3334/health` → `{"ok": true}`).
+If it shows **failed**: check that the MCP server is running
+(`curl http://127.0.0.1:3334/health` → `{"ok": true}`).
 
 ### Cursor
 
