@@ -55,11 +55,16 @@ Each client provides its own Umami credentials via request headers:
 - `X-Umami-Url`
 - `X-Umami-Username`
 - `X-Umami-Password`
+- `X-Umami-Website-Id` *(optional)* — UUID of a default website. Tools
+  whose schema accepts `websiteId` will use this value when the agent omits
+  the argument. Useful for single-website setups and for working around
+  weaker LLMs that occasionally truncate UUIDs in tool calls. Validated
+  as a UUID; bad values are rejected with `400`.
 
 The server keeps no global credentials, holds nothing in env, and stores
 nothing on disk. Credentials live only in the per-session `UmamiClient`
 inside the running process. One server can serve many Umami instances.
-Requests without all three headers are rejected with `401`.
+Requests without the three required headers are rejected with `401`.
 
 ## Connect from your client
 

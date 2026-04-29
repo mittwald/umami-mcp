@@ -17,6 +17,8 @@ export type UmamiClientOptions = {
   url: string;
   username: string;
   password: string;
+  /** Optional default website ID, used by tool handlers when the agent omits it. */
+  defaultWebsiteId?: string;
   fetchImpl?: typeof fetch;
   /** Per-request timeout in ms. Default 15s. */
   requestTimeoutMs?: number;
@@ -30,6 +32,7 @@ export class UmamiClient {
   private readonly url: string;
   private readonly username: string;
   private readonly password: string;
+  public readonly defaultWebsiteId?: string;
   private readonly fetchImpl: typeof fetch;
   private readonly timeoutMs: number;
 
@@ -37,6 +40,7 @@ export class UmamiClient {
     this.url = opts.url.replace(/\/+$/, '');
     this.username = opts.username;
     this.password = opts.password;
+    this.defaultWebsiteId = opts.defaultWebsiteId;
     this.fetchImpl = opts.fetchImpl ?? fetch;
     this.timeoutMs = opts.requestTimeoutMs ?? DEFAULT_TIMEOUT_MS;
   }
