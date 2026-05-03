@@ -3,8 +3,8 @@
   "nodes": [
     {
       "parameters": {
-        "content": "## Setup (5 Minuten)\n\n1. **Config-Node** öffnen → `mcpUrl` (komplette URL inkl. `/mcp`), `fromEmail`, `toEmail`.\n2. **Send Email** → SMTP-Credential auswählen.\n3. **Umami MCP Tool** → *HTTP Multiple Headers Auth*-Credential mit vier Headern:\n   - `X-Umami-Url`\n   - `X-Umami-Username`\n   - `X-Umami-Password`\n   - `X-Umami-Website-Id` (UUID — vom MCP-Server aufgelöst)\n4. **OpenAI Chat Model** → OpenAI-Credential. Modell muss Function-Calling können (`gpt-4.1-mini` oder besser, **kein** gpt-oss).\n5. Workflow aktivieren — feuert Mo 08:00 (Wochenreport KW-1) und am 1. eines Monats 08:00 (Monatsreport Vormonat).\n\nManuell testen: Trigger-Node → *Execute Workflow*.",
-        "height": 280,
+        "content": "## Setup\n\n1. **Config** öffnen und ausfüllen:\n   - `umamiUrl`\n   - `umamiUsername`\n   - `umamiPassword`\n   - `websiteId` (UUID)\n   - `fromEmail`\n   - `toEmail`\n2. **Send Email** → SMTP-Credential auswählen.\n3. **OpenAI Chat Model** → OpenAI-Credential. Empfehlung: `gpt-4.1-mini`.\n4. Workflow aktivieren.\n\nUsername/Passwort liegen plaintext im Set-Node — für lokale Nutzung ok.",
+        "height": 260,
         "width": 380,
         "color": 4
       },
@@ -12,20 +12,20 @@
       "name": "Setup",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [-1280, -360]
+      "position": [-1500, -380]
     },
     {
       "parameters": {
-        "content": "## Datenfluss\n\n**Trigger** → period markieren → echte Kalender-Boundaries berechnen (Vorwoche / Vormonat + Vorperiode + Vorjahr) → Config (mcpUrl/websiteId) → **AI Agent** ruft Umami-MCP-Tools selbst auf (get_stats, get_pageviews, get_metrics) → schreibt HTML-E-Mail mit Tiles, Sparkline, Top-Movern, Channel-Mix → Sanitize → Versand.",
-        "height": 220,
-        "width": 600,
+        "content": "## Datenfluss\n\nTrigger → Period markieren → Boundaries berechnen → Config → **Login** holt Bearer-Token → 10 HTTP-Requests parallel (Stats, Pageviews, 6× Metrics current, 2× Metrics previous) → Aggregate → AI Agent rendert HTML → Sanitize → Send Email.",
+        "height": 180,
+        "width": 700,
         "color": 7
       },
       "id": "note-flow",
       "name": "Flow",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [-700, -360]
+      "position": [-900, -380]
     },
     {
       "parameters": {
@@ -35,7 +35,7 @@
       "name": "Mon 08:00 (Weekly)",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [-1240, -100]
+      "position": [-1460, -100]
     },
     {
       "parameters": {
@@ -45,7 +45,7 @@
       "name": "1st 08:00 (Monthly)",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [-1240, 100]
+      "position": [-1460, 100]
     },
     {
       "parameters": {
@@ -60,7 +60,7 @@
       "name": "period=weekly",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [-1020, -100]
+      "position": [-1240, -100]
     },
     {
       "parameters": {
@@ -75,24 +75,27 @@
       "name": "period=monthly",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [-1020, 100]
+      "position": [-1240, 100]
     },
     {
       "parameters": {
         "language": "javaScript",
-        "jsCode": "const period = $json.period;\nconst now = DateTime.now().setZone('Europe/Berlin');\nlet currentStart, currentEnd, previousStart, previousEnd, yoyStart, yoyEnd;\nlet periodLabel, subjectSuffix, unit;\n\nif (period === 'weekly') {\n  // letzte vollständige Kalenderwoche (Mo–So) in Europe/Berlin\n  const thisMonday = now.startOf('week');\n  const cs = thisMonday.minus({ weeks: 1 });\n  const ce = cs.plus({ weeks: 1 }).minus({ milliseconds: 1 });\n  currentStart = cs.toISO();\n  currentEnd = ce.toISO();\n  previousStart = cs.minus({ weeks: 1 }).toISO();\n  previousEnd = cs.minus({ milliseconds: 1 }).toISO();\n  yoyStart = cs.minus({ years: 1 }).toISO();\n  yoyEnd = ce.minus({ years: 1 }).toISO();\n  periodLabel = `Wochenreport KW${cs.weekNumber} / ${cs.weekYear}`;\n  subjectSuffix = `KW${cs.weekNumber} ${cs.weekYear}`;\n  unit = 'day';\n} else {\n  // letzter vollständiger Kalendermonat\n  const cs = now.minus({ months: 1 }).startOf('month');\n  const ce = cs.endOf('month');\n  currentStart = cs.toISO();\n  currentEnd = ce.toISO();\n  const ps = cs.minus({ months: 1 });\n  previousStart = ps.toISO();\n  previousEnd = ps.endOf('month').toISO();\n  yoyStart = cs.minus({ years: 1 }).toISO();\n  yoyEnd = cs.minus({ years: 1 }).endOf('month').toISO();\n  const monthName = cs.setLocale('de').toFormat('LLLL yyyy');\n  periodLabel = `Monatsreport ${monthName}`;\n  subjectSuffix = monthName;\n  unit = 'day';\n}\n\nreturn [{ json: { period, periodLabel, subjectSuffix, currentStart, currentEnd, previousStart, previousEnd, yoyStart, yoyEnd, unit, timezone: 'Europe/Berlin' } }];"
+        "jsCode": "const period = $json.period;\nconst now = DateTime.now().setZone('Europe/Berlin');\nlet currentStart, currentEnd, previousStart, previousEnd, periodLabel, subjectSuffix, unit;\n\nif (period === 'weekly') {\n  const thisMonday = now.startOf('week');\n  const cs = thisMonday.minus({ weeks: 1 });\n  const ce = cs.plus({ weeks: 1 }).minus({ milliseconds: 1 });\n  currentStart = cs.toISO();\n  currentEnd = ce.toISO();\n  previousStart = cs.minus({ weeks: 1 }).toISO();\n  previousEnd = cs.minus({ milliseconds: 1 }).toISO();\n  periodLabel = `Wochenreport KW${cs.weekNumber} / ${cs.weekYear}`;\n  subjectSuffix = `KW${cs.weekNumber} ${cs.weekYear}`;\n  unit = 'day';\n} else {\n  const cs = now.minus({ months: 1 }).startOf('month');\n  const ce = cs.endOf('month');\n  currentStart = cs.toISO();\n  currentEnd = ce.toISO();\n  const ps = cs.minus({ months: 1 });\n  previousStart = ps.toISO();\n  previousEnd = ps.endOf('month').toISO();\n  const monthName = cs.setLocale('de').toFormat('LLLL yyyy');\n  periodLabel = `Monatsreport ${monthName}`;\n  subjectSuffix = monthName;\n  unit = 'day';\n}\n\nconst toMs = (s) => new Date(s).getTime();\nreturn [{\n  json: {\n    period, periodLabel, subjectSuffix,\n    currentStart, currentEnd, previousStart, previousEnd,\n    currentStartMs: toMs(currentStart),\n    currentEndMs: toMs(currentEnd),\n    previousStartMs: toMs(previousStart),\n    previousEndMs: toMs(previousEnd),\n    unit, timezone: 'Europe/Berlin',\n  },\n}];"
       },
       "id": "compute-period",
       "name": "Compute Period",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-800, 0]
+      "position": [-1020, 0]
     },
     {
       "parameters": {
         "assignments": {
           "assignments": [
-            { "id": "u", "name": "mcpUrl", "value": "REPLACE-WITH-UMAMI-MCP-URL", "type": "string" },
+            { "id": "u", "name": "umamiUrl", "value": "REPLACE-WITH-UMAMI-URL", "type": "string" },
+            { "id": "n", "name": "umamiUsername", "value": "REPLACE-WITH-USERNAME", "type": "string" },
+            { "id": "p", "name": "umamiPassword", "value": "REPLACE-WITH-PASSWORD", "type": "string" },
+            { "id": "w", "name": "websiteId", "value": "REPLACE-WITH-UMAMI-WEBSITE-ID", "type": "string" },
             { "id": "f", "name": "fromEmail", "value": "REPLACE-WITH-FROM-EMAIL", "type": "string" },
             { "id": "t", "name": "toEmail", "value": "REPLACE-WITH-TO-EMAIL", "type": "string" }
           ],
@@ -104,21 +107,305 @@
       "name": "Config",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
+      "position": [-800, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').item.json.umamiUrl }}/api/auth/login",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"username\": \"{{ $('Config').item.json.umamiUsername }}\",\n  \"password\": \"{{ $('Config').item.json.umamiPassword }}\"\n}",
+        "options": {}
+      },
+      "id": "login",
+      "name": "Login",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [-580, 0]
     },
     {
       "parameters": {
+        "url": "={{ $('Config').item.json.umamiUrl }}/api/websites/{{ $('Config').item.json.websiteId }}/stats",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "startAt", "value": "={{ $('Compute Period').item.json.currentStartMs }}" },
+            { "name": "endAt", "value": "={{ $('Compute Period').item.json.currentEndMs }}" }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $('Login').item.json.token }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "stats",
+      "name": "Stats",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-360, 0]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Config').item.json.umamiUrl }}/api/websites/{{ $('Config').item.json.websiteId }}/pageviews",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "startAt", "value": "={{ $('Compute Period').item.json.currentStartMs }}" },
+            { "name": "endAt", "value": "={{ $('Compute Period').item.json.currentEndMs }}" },
+            { "name": "unit", "value": "={{ $('Compute Period').item.json.unit }}" },
+            { "name": "timezone", "value": "={{ $('Compute Period').item.json.timezone }}" }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $('Login').item.json.token }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "pageviews",
+      "name": "Pageviews",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-180, 0]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Config').item.json.umamiUrl }}/api/websites/{{ $('Config').item.json.websiteId }}/metrics",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "startAt", "value": "={{ $('Compute Period').item.json.currentStartMs }}" },
+            { "name": "endAt", "value": "={{ $('Compute Period').item.json.currentEndMs }}" },
+            { "name": "type", "value": "path" },
+            { "name": "limit", "value": "10" }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $('Login').item.json.token }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "m-path",
+      "name": "Metrics path",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Config').item.json.umamiUrl }}/api/websites/{{ $('Config').item.json.websiteId }}/metrics",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "startAt", "value": "={{ $('Compute Period').item.json.currentStartMs }}" },
+            { "name": "endAt", "value": "={{ $('Compute Period').item.json.currentEndMs }}" },
+            { "name": "type", "value": "referrer" },
+            { "name": "limit", "value": "10" }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $('Login').item.json.token }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "m-referrer",
+      "name": "Metrics referrer",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [180, 0]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Config').item.json.umamiUrl }}/api/websites/{{ $('Config').item.json.websiteId }}/metrics",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "startAt", "value": "={{ $('Compute Period').item.json.currentStartMs }}" },
+            { "name": "endAt", "value": "={{ $('Compute Period').item.json.currentEndMs }}" },
+            { "name": "type", "value": "country" },
+            { "name": "limit", "value": "10" }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $('Login').item.json.token }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "m-country",
+      "name": "Metrics country",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [360, 0]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Config').item.json.umamiUrl }}/api/websites/{{ $('Config').item.json.websiteId }}/metrics",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "startAt", "value": "={{ $('Compute Period').item.json.currentStartMs }}" },
+            { "name": "endAt", "value": "={{ $('Compute Period').item.json.currentEndMs }}" },
+            { "name": "type", "value": "channel" },
+            { "name": "limit", "value": "10" }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $('Login').item.json.token }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "m-channel",
+      "name": "Metrics channel",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [540, 0]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Config').item.json.umamiUrl }}/api/websites/{{ $('Config').item.json.websiteId }}/metrics",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "startAt", "value": "={{ $('Compute Period').item.json.currentStartMs }}" },
+            { "name": "endAt", "value": "={{ $('Compute Period').item.json.currentEndMs }}" },
+            { "name": "type", "value": "device" },
+            { "name": "limit", "value": "10" }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $('Login').item.json.token }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "m-device",
+      "name": "Metrics device",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [720, 0]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Config').item.json.umamiUrl }}/api/websites/{{ $('Config').item.json.websiteId }}/metrics",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "startAt", "value": "={{ $('Compute Period').item.json.currentStartMs }}" },
+            { "name": "endAt", "value": "={{ $('Compute Period').item.json.currentEndMs }}" },
+            { "name": "type", "value": "event" },
+            { "name": "limit", "value": "10" }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $('Login').item.json.token }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "m-event",
+      "name": "Metrics event",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 0]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Config').item.json.umamiUrl }}/api/websites/{{ $('Config').item.json.websiteId }}/metrics",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "startAt", "value": "={{ $('Compute Period').item.json.previousStartMs }}" },
+            { "name": "endAt", "value": "={{ $('Compute Period').item.json.previousEndMs }}" },
+            { "name": "type", "value": "path" },
+            { "name": "limit", "value": "50" }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $('Login').item.json.token }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "m-path-prev",
+      "name": "Metrics path (prev)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1080, 0]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Config').item.json.umamiUrl }}/api/websites/{{ $('Config').item.json.websiteId }}/metrics",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "startAt", "value": "={{ $('Compute Period').item.json.previousStartMs }}" },
+            { "name": "endAt", "value": "={{ $('Compute Period').item.json.previousEndMs }}" },
+            { "name": "type", "value": "referrer" },
+            { "name": "limit", "value": "50" }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $('Login').item.json.token }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "m-referrer-prev",
+      "name": "Metrics referrer (prev)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1260, 0]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const period = $('Compute Period').first().json;\nconst stats = $('Stats').first().json;\nconst pageviews = $('Pageviews').first().json;\nconst metrics = {\n  path: $('Metrics path').first().json,\n  referrer: $('Metrics referrer').first().json,\n  country: $('Metrics country').first().json,\n  channel: $('Metrics channel').first().json,\n  device: $('Metrics device').first().json,\n  event: $('Metrics event').first().json,\n  previousPath: $('Metrics path (prev)').first().json,\n  previousReferrer: $('Metrics referrer (prev)').first().json,\n};\nreturn [{ json: { period, stats, pageviews, metrics } }];"
+      },
+      "id": "aggregate",
+      "name": "Aggregate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1440, 0]
+    },
+    {
+      "parameters": {
         "promptType": "define",
-        "text": "=## ZEITRÄUME (ISO 8601 mit Offset, Europe/Berlin)\n\nÜbergib die folgenden Strings 1:1 als `startAt` / `endAt` an die Umami-Tools — kein Reformatieren, kein `rangeDays`.\n\n- Aktuelle Periode\n  - startAt: {{ $json.currentStart }}\n  - endAt:   {{ $json.currentEnd }}\n- Vorperiode\n  - startAt: {{ $json.previousStart }}\n  - endAt:   {{ $json.previousEnd }}\n- Vorjahr\n  - startAt: {{ $json.yoyStart }}\n  - endAt:   {{ $json.yoyEnd }}\n- Time-Series: unit={{ $json.unit }}, timezone=Europe/Berlin\n\n## WEBSITE-ID\n\nDer MCP-Server ist mit einer Default-Website-ID konfiguriert. Du musst `websiteId` in den Tool-Argumenten **NICHT** übergeben — der Server löst sie aus dem `X-Umami-Website-Id`-Header auf. Lasse das Feld einfach weg.\n\n## AUFGABE\n\nErstelle den **{{ $json.periodLabel }}** mit den oben genannten Zeiträumen, gemäß System-Prompt-Format.\n\n## FEHLERBEHANDLUNG\n\n- Wenn ein Tool-Call einen Fehler liefert: genau einmal mit korrigierten Argumenten erneut versuchen.\n- Wenn auch das scheitert oder die Antwort leer ist: betroffene Sektion komplett weglassen.\n- Niemals einen Fallback-Satz wie „Daten konnten nicht geladen werden\" oder „Bitte Parameter prüfen\" in die E-Mail schreiben. Lieber kürzer als falsch.",
+        "text": "=## Periode\n\n**{{ $json.period.periodLabel }}**\n- Aktuell:    {{ $json.period.currentStart }} → {{ $json.period.currentEnd }}\n- Vorperiode: {{ $json.period.previousStart }} → {{ $json.period.previousEnd }}\n- Time-Series-Granularität: {{ $json.period.unit }}\n\n## Daten\n\n```json\n{{ JSON.stringify({stats: $json.stats, pageviews: $json.pageviews, metrics: $json.metrics}, null, 2) }}\n```\n\n## Aufgabe\n\nErstelle daraus die HTML-E-Mail gemäß System-Prompt.\n- `stats.comparison.*` enthält Werte der Vorperiode für Δ%-Berechnung.\n- `metrics.previousPath` / `metrics.previousReferrer` für Top-Mover-Vergleich.\n- Bei leeren Listen: betroffene Sektion weglassen, NIEMALS „Daten konnten nicht geladen werden\" o.ä. schreiben.",
         "options": {
-          "systemMessage": "Du bist Senior Digital Analyst und schreibst pointierte Traffic-Reports für eine Marketing-Lead. Sie hat 3 Minuten — gib ihr Klarheit, Trendverständnis und Maßnahmen, kein Daten-Dump.\n\n## TOOL-USE-PROTOKOLL (strikt)\n\n- Du nutzt die Function-Calling-Schnittstelle, um Umami-Tools aufzurufen. Echte Function-Calls, niemals Tool-Use als Text simulieren.\n- Schreibe NIEMALS \"Calling …\", \"Ich rufe … auf\", \"Ich werde …\" oder JSON-ähnliche Tool-Argumente in den sichtbaren Output.\n- Nur das fertige HTML-E-Mail-Fragment ist sichtbar. Tool-Calls passieren unsichtbar.\n- Wenn ein Tool einen Fehler liefert, versuche genau einmal eine Korrektur (z.B. fehlender Parameter); danach lasse das Detail im Report weg, statt zu raten.\n\n## DATENBESCHAFFUNG (Pflicht)\n\nNutze diese Umami-Tools mit `websiteId` aus dem User-Prompt und `startAt`/`endAt` aus dem User-Prompt (nie `rangeDays` verwenden):\n\n1. `get_stats` für **aktuelle Periode**, **Vorperiode** und **Vorjahresperiode** — drei Calls, separat. Liefert pageviews, visitors, visits, bounces, totaltime.\n2. `get_pageviews` für die aktuelle Periode mit `unit` und `timezone` aus dem Prompt — für die Sparkline.\n3. `get_metrics` für die aktuelle Periode mit folgenden `type`-Werten (jeweils `limit: 10`): `path`, `referrer`, `country`, `channel`, `device`, `browser`, `utmSource`, `utmCampaign`.\n4. `get_metrics` mit `type=path` und `type=referrer` zusätzlich für die **Vorperiode** — damit du Top-Mover (größter Zugewinn / Verlust pro Item) berechnen kannst.\n5. `get_metrics` mit `type=event` (limit 10) für die aktuelle Periode — falls leer, Event-Sektion einfach weglassen.\n\nWenn ein Tool eine leere Liste zurückgibt: betroffene Sektion komplett weglassen, niemals Werte erfinden.\n\n## ANALYSE\n\nAus den Daten leite ab:\n\n- **Headline-Bewegung**: was hat sich am stärksten verändert ggü. Vorperiode? (Pageviews, Visitors, Bounce — fokussiere auf das, was die Story trägt.)\n- **Vorjahresvergleich**: erwähne ihn nur, wenn er etwas Aussagekräftiges zeigt (z.B. „starke Ausreißer ggü. saisonalem Niveau\").\n- **Top-Mover**: 3 Pages mit größtem absolutem Zugewinn an Pageviews und 3 mit größtem Verlust ggü. Vorperiode. Dasselbe für Referrer.\n- **Channel-Mix**: prozentualer Anteil der Channels (Direct, Search, Social, Referral, Email, Paid …) aus `get_metrics type=channel`.\n- **Engagement-Qualität**: bewegte sich Bounce-Rate / Visit-Dauer im Einklang mit Volumen oder gegenläufig? Was bedeutet das?\n- **Audience-Shift**: neue Top-Geo / Device-Verschiebung erwähnen, wenn auffällig.\n- **Trend innerhalb der Periode**: aus der Time-Series — Anstieg, Abfall, Spike-Tag/Stunde?\n\n## OUTPUT-FORMAT (HTML-E-Mail-Fragment)\n\nGib AUSSCHLIESSLICH ein self-contained HTML-Fragment aus. KEIN Markdown, KEIN Code-Fence, KEIN <html>/<head>/<body>-Wrapper, KEINE Preamble. Nur Inline-CSS, kein externes CSS, kein JavaScript, keine Remote-Bilder.\n\nDesign-Sprache (durchgehend `border-radius:0`, scharfe Kanten):\n\n- **Container**: `<table role=\"presentation\" width=\"640\" align=\"center\" cellpadding=\"0\" cellspacing=\"0\" style=\"font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1f2937;line-height:1.55;background:#ffffff;\">`\n- **Brand-Header** (`<td>` mit Gradient): `background:linear-gradient(135deg,#0f172a,#1e3a8a);color:#fff;padding:28px 32px`. Innen: kleines Label uppercase (#94a3b8, 11px, letter-spacing:1.5px) z.B. \"WOCHENREPORT\" oder \"MONATSREPORT\", darunter Titel #fff 26px bold (z.B. \"KW17 / 2026\" oder \"April 2026\"), darunter Subtitle #cbd5e1 13px mit dem expliziten Datumsbereich (z.B. \"21. – 27. April 2026\").\n- **Tile-Row direkt unter Header**: Sub-Tabelle mit 5 Zellen in einer Reihe. Jede Zelle: `background:#f8fafc;border:1px solid #e2e8f0;padding:18px 14px;text-align:center;width:20%`. Inhalt pro Tile:\n  - Label uppercase #64748b 10px letter-spacing:1px (PAGEVIEWS, VISITORS, VISITS, BOUNCE %, AVG. SESSION).\n  - Großer Wert #0f172a 28px bold mit Tausendertrennzeichen (Punkt für Tausender, Komma für Dezimal — deutsches Format).\n  - Δ-Zeile 12px: ▲ in #16a34a wenn up, ▼ in #dc2626 wenn down, — in #64748b wenn flat. Format `▲ 12,4 %`.\n  - Optional zweite Δ-Zeile #94a3b8 11px mit YoY in Klammern, z.B. `(YoY +5,1 %)`.\n- **Headline-Box** unter den Tiles: `padding:20px 32px;background:#fef3c7;border-left:4px solid #f59e0b`. Eine Überschrift `<strong>` 14px „Headline\" und ein Satz mit dem stärksten Befund.\n- **Sparkline-Sektion**: Label „Verlauf\" (h3 #0f172a 14px, margin:24px 32px 8px). Darunter eine Tabelle mit so vielen `<td>`-Spalten wie Zeit-Buckets, jede `<td>` `width:auto;padding:0 1px;vertical-align:bottom;height:80px`. Innen ein `<div>` mit `background:#1e3a8a;width:100%;height:Xpx`, wobei X = round(value / max * 70). Darunter eine zweite Zeile mit Label (z.B. Wochentag-Kürzel oder Tag-Nummer) #94a3b8 10px text-align:center. Die Sparkline-Tabelle in `<td style=\"padding:0 32px\">` einbetten.\n- **Top-Mover-Sektion** (h2 \"Top-Mover\", styling siehe unten). Zwei Spalten via Sub-Tabelle: links \"Gewinner\" (Pages mit größtem Zugewinn), rechts \"Verlierer\". Jede Spalte 50% Breite. Pro Spalte: Tabelle mit 3 Zeilen, Spalten *Pfad* | *Pageviews* | *Δ*. Δ als Pill: grün-Pill (color:#16a34a;background:#dcfce7;padding:1px 8px;font-size:11px;font-weight:600) für Gewinner, rot-Pill (color:#dc2626;background:#fee2e2) für Verlierer.\n- **Channel-Mix**: h2 \"Channel-Mix\". Stacked Horizontal Bar als Tabelle, `width:100%;height:32px;background:#e2e8f0;border-collapse:collapse`. Pro Channel ein `<td>` mit `width:X%;background:<color>` ohne Inhalt, wobei X der Prozentanteil und <color> rotierend aus dieser Palette: `#1e3a8a, #0d9488, #d97706, #be185d, #4f46e5, #16a34a, #6b7280`. Darunter Legende als zwei-Spalten-Liste: Farb-Quadrat (`<span style=\"display:inline-block;width:10px;height:10px;background:<color>;margin-right:6px\"></span>`) + Channel-Name + Prozent.\n- **Top-5-Tabellen**: zwei separate h2-Sektionen \"Top Pages\" und \"Top Quellen\". Tabelle full-width, `border-collapse:collapse`. Header-Zeile #f1f5f9 padding:10px 12px text-align:left font-weight:600 font-size:12px uppercase #475569. Datenzeilen: alternierend `#fff` / `#f8fafc`, padding:10px 12px font-size:13px, Zahlen rechtsbündig mit `font-feature-settings:'tnum' 1`. Spalten Pages: *Pfad* | *Pageviews* | *Δ Vorperiode*. Spalten Quellen: *Quelle* | *Visitors* | *Δ*.\n- **Geo & Device** (kompakte Zwei-Spalten-Sektion, h2 \"Audience\"): links Top 3 Länder mit Anteil-Bars (Mini-Bar 4px hoch), rechts Device-Split als kleine Stacked Bar (Desktop / Mobile / Tablet) mit Prozentlabels.\n- **Maßnahmen**: h2 \"Maßnahmen\". Nummerierte Liste 3–5 konkrete Actions. Pro Item: Action-Titel <strong>, kurze Beschreibung, dann eine Zeile #64748b 12px „Ziel: <Metrik> <Δ erwartet>\".\n- **Footer**: `<td style=\"padding:24px 32px;border-top:1px solid #e2e8f0;color:#94a3b8;font-size:11px;background:#f8fafc;\">` mit „Generiert via Umami MCP · {{ generation timestamp }}\".\n\n### Generelle Section-Header-Styles\n\nh2 → `font-size:14px;font-weight:600;color:#0f172a;text-transform:uppercase;letter-spacing:1px;margin:36px 32px 12px;padding-bottom:6px;border-bottom:2px solid #1e3a8a;`\n\n### Zahl- und Datumsformatierung (Deutsch)\n\n- Tausendertrennzeichen: Punkt (`12.482`).\n- Dezimaltrennzeichen: Komma (`3,2 %`).\n- Datum: `21. April 2026`.\n- Zeitspanne im Subtitle: `21. – 27. April 2026` mit Halbgeviertstrich.\n\n## QUALITÄTSREGELN\n\n- Nie Werte erfinden. Wenn Daten fehlen → betroffene Sektion komplett weglassen.\n- Niemals Fallback-Sätze wie „Daten konnten nicht geladen werden\", „Bitte Parameter prüfen\" o.ä. in die E-Mail schreiben. Wenn alle Pflicht-Tools (get_stats aktuelle Periode + mindestens eine get_metrics) leer sind: gib einen sehr kurzen HTML-Block aus mit Header und einem Satz „Für diesen Zeitraum liegen noch keine Umami-Daten vor.\" — kein Hinweis auf Tool-Probleme.\n- Insights statt Aufzählung. Jede Aussage trägt eine Zahl.\n- Maßnahmen müssen aus den gezeigten Daten begründbar sein.\n- Wortbudget: max. 350 Wörter sichtbarer Text (HTML-Markup zählt nicht).\n- Output startet mit `<table` und endet mit `</table>` der Container-Tabelle.\n\nKein \"Hier ist der Report:\" davor. Direkt das HTML."
+          "systemMessage": "Du bist Senior Digital Analyst und schreibst pointierte Traffic-Reports für eine Marketing-Lead. Sie hat 3 Minuten — gib ihr Klarheit, Trendverständnis und Maßnahmen, kein Daten-Dump.\n\nDu bekommst die Daten als fertiges JSON im User-Prompt. KEINE Tools — arbeite ausschließlich mit den im Prompt mitgelieferten Werten.\n\n## ANALYSE\n\n- **Headline-Bewegung**: was hat sich am stärksten verändert ggü. Vorperiode?\n- **Top-Mover** (Pages und Referrer): aktuelle Liste vs. previousPath/previousReferrer, je 3 Gewinner und 3 Verlierer per absoluter Differenz.\n- **Channel-Mix**: prozentualer Anteil aus metrics.channel.\n- **Engagement-Qualität**: bewegte sich Bounce-Rate / Visit-Dauer mit oder gegen Volumen?\n- **Audience-Shift**: auffällige Top-Geo / Device-Verschiebung.\n- **Trend innerhalb der Periode**: aus pageviews-Series — Anstieg, Abfall, Spike?\n\n## OUTPUT-FORMAT (HTML-E-Mail-Fragment)\n\nNur ein self-contained HTML-Fragment. KEIN Markdown, KEIN Code-Fence, KEIN <html>/<head>/<body>-Wrapper, KEINE Preamble. Nur Inline-CSS, kein externes CSS, kein JavaScript, keine Remote-Bilder.\n\nDesign (durchgehend border-radius:0):\n\n- **Container**: <table role=\"presentation\" width=\"640\" align=\"center\" cellpadding=\"0\" cellspacing=\"0\" style=\"font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1f2937;line-height:1.55;background:#ffffff;\">\n- **Brand-Header**: <td> mit Gradient (background:linear-gradient(135deg,#0f172a,#1e3a8a);color:#fff;padding:28px 32px). Innen: Label uppercase #94a3b8 11px letter-spacing:1.5px („WOCHENREPORT\"/„MONATSREPORT\"), Titel #fff 26px bold (z.B. „KW17 / 2026\" oder „April 2026\"), Subtitle #cbd5e1 13px mit explizitem Datumsbereich („21. – 27. April 2026\").\n- **Tile-Row**: 5 Zellen, je background:#f8fafc;border:1px solid #e2e8f0;padding:18px 14px;text-align:center;width:20%. Inhalt: Label uppercase #64748b 10px letter-spacing:1px (PAGEVIEWS, VISITORS, VISITS, BOUNCE %, AVG. SESSION). Großer Wert #0f172a 28px bold mit Tausendertrennzeichen. Δ-Zeile 12px: ▲ #16a34a wenn up, ▼ #dc2626 wenn down, — #64748b wenn flat. Format „▲ 12,4 %\".\n- **Headline-Box** unter Tiles: padding:20px 32px;background:#fef3c7;border-left:4px solid #f59e0b. <strong>14px „Headline\" + ein Satz mit dem stärksten Befund.\n- **Sparkline**: Label „Verlauf\" (h3 #0f172a 14px margin:24px 32px 8px). Tabelle mit so vielen <td>-Spalten wie Zeit-Buckets, je width:auto;padding:0 1px;vertical-align:bottom;height:80px. Innen <div style=\"background:#1e3a8a;width:100%;height:Xpx\">, X = round(value / max * 70). Darunter Label #94a3b8 10px text-align:center.\n- **Top-Mover** (h2 „Top-Mover\"): zwei 50%-Spalten via Sub-Tabelle. Links „Gewinner\", rechts „Verlierer\". Pro Spalte 3-Zeilen-Tabelle: Pfad | Pageviews | Δ. Δ als Pill-<span> (color:#16a34a;background:#dcfce7;padding:1px 8px;font-size:11px;font-weight:600 für Gewinner; color:#dc2626;background:#fee2e2 für Verlierer).\n- **Channel-Mix** (h2 „Channel-Mix\"): Stacked Horizontal Bar als Tabelle width:100%;height:32px;background:#e2e8f0;border-collapse:collapse. Pro Channel <td width:X%;background:<color>>, <color> rotierend aus #1e3a8a, #0d9488, #d97706, #be185d, #4f46e5, #16a34a, #6b7280. Darunter Legende mit Farb-Quadraten + Channelname + Prozent.\n- **Top 5 Pages** und **Top 5 Quellen** (jeweils h2): Tabelle full-width border-collapse:collapse. Header-Zeile #f1f5f9 padding:10px 12px text-align:left font-weight:600 font-size:12px uppercase #475569. Datenzeilen alternierend #fff/#f8fafc, padding:10px 12px font-size:13px, Zahlen rechtsbündig mit font-feature-settings:'tnum' 1.\n- **Audience** (h2): zweispaltig — links Top 3 Länder mit Anteil-Bars, rechts Device-Split als Stacked Bar.\n- **Maßnahmen** (h2): nummerierte Liste 3–5 konkrete Actions mit <strong>-Titel, Beschreibung, „Ziel: <Metrik>\"-Zeile #64748b 12px.\n- **Footer**: <td style=\"padding:24px 32px;border-top:1px solid #e2e8f0;color:#94a3b8;font-size:11px;background:#f8fafc;\"> mit „Generiert von n8n + Umami\".\n\n### h2-Style\n\nh2 → font-size:14px;font-weight:600;color:#0f172a;text-transform:uppercase;letter-spacing:1px;margin:36px 32px 12px;padding-bottom:6px;border-bottom:2px solid #1e3a8a;\n\n### Zahlenformat (Deutsch)\n\nTausendertrennzeichen Punkt (12.482), Dezimaltrennzeichen Komma (3,2 %), Datum „21. April 2026\", Zeitspanne mit Halbgeviertstrich („21. – 27. April 2026\").\n\n## QUALITÄTSREGELN\n\n- Nie Werte erfinden. Wenn Daten fehlen → Sektion weglassen.\n- Keine Fallback-Sätze wie „Daten konnten nicht geladen werden\". Wenn alles leer ist: kurzer HTML-Block mit Header und einem Satz „Für diesen Zeitraum liegen noch keine Daten vor.\"\n- Insights statt Aufzählung. Jede Aussage trägt eine Zahl.\n- Maßnahmen aus den Daten begründbar.\n- Max. 350 Wörter sichtbarer Text.\n- Output startet mit <table und endet mit </table>.\n\nKein „Hier ist der Report:\" davor. Direkt das HTML."
         }
       },
       "id": "agent",
       "name": "AI Agent",
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 3.1,
-      "position": [-340, 0]
+      "position": [1660, 0]
     },
     {
       "parameters": {
@@ -129,36 +416,18 @@
       "name": "OpenAI Chat Model",
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1.3,
-      "position": [-440, 240]
-    },
-    {
-      "parameters": {
-        "endpointUrl": "={{ $('Config').item.json.mcpUrl }}",
-        "authentication": "multipleHeadersAuth",
-        "options": {}
-      },
-      "id": "mcp-tool",
-      "name": "Umami MCP Tool",
-      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
-      "typeVersion": 1.2,
-      "position": [-240, 240],
-      "credentials": {
-        "httpMultipleHeadersAuth": {
-          "id": "REPLACE-WITH-MULTI-HEADER-CREDENTIAL-ID",
-          "name": "Umami MCP Headers"
-        }
-      }
+      "position": [1580, 220]
     },
     {
       "parameters": {
         "language": "javaScript",
-        "jsCode": "// Defensive cleanup: strip evtl. geleakte Tool-Use-Narration und Markdown-Fences,\n// die schwächere Modelle in den sichtbaren Output schreiben würden.\nlet raw = ($input.first().json.output ?? '').toString();\nraw = raw.replace(/Calling\\s+[A-Za-z0-9_]+\\s+with input:\\s*\\{[^{}]*\\}\\s*/g, '');\nraw = raw.replace(/^\\s*Calling\\s+[A-Za-z0-9_]+.*$/gm, '');\nraw = raw.replace(/```html\\s*/gi, '').replace(/```\\s*$/g, '');\nraw = raw.replace(/^\\s*Hier ist[^\\n]*\\n/i, '');\nconst startTags = ['<table', '<!doctype', '<!DOCTYPE', '<html'];\nconst positions = startTags.map((t) => raw.indexOf(t)).filter((i) => i >= 0);\nif (positions.length > 0) raw = raw.slice(Math.min(...positions));\nraw = raw.replace(/\\n{3,}/g, '\\n\\n').trim();\n\nconst ctx = $('Compute Period').first().json;\nreturn [{ json: { html: raw, subjectSuffix: ctx.subjectSuffix, periodLabel: ctx.periodLabel } }];"
+        "jsCode": "let raw = ($input.first().json.output ?? '').toString();\nraw = raw.replace(/```html\\s*/gi, '').replace(/```\\s*$/g, '');\nraw = raw.replace(/^\\s*Hier ist[^\\n]*\\n/i, '');\nconst startTags = ['<table', '<!doctype', '<!DOCTYPE', '<html'];\nconst positions = startTags.map((t) => raw.indexOf(t)).filter((i) => i >= 0);\nif (positions.length > 0) raw = raw.slice(Math.min(...positions));\nraw = raw.replace(/\\n{3,}/g, '\\n\\n').trim();\n\nconst ctx = $('Compute Period').first().json;\nreturn [{ json: { html: raw, subjectSuffix: ctx.subjectSuffix, periodLabel: ctx.periodLabel } }];"
       },
       "id": "sanitize",
       "name": "Sanitize HTML",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-100, 0]
+      "position": [1880, 0]
     },
     {
       "parameters": {
@@ -173,7 +442,7 @@
       "name": "Send Email",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
-      "position": [140, 0],
+      "position": [2100, 0],
       "credentials": {
         "smtp": { "id": "REPLACE-WITH-SMTP-CREDENTIAL-ID", "name": "SMTP account" }
       }
@@ -185,9 +454,20 @@
     "period=weekly": { "main": [[{ "node": "Compute Period", "type": "main", "index": 0 }]] },
     "period=monthly": { "main": [[{ "node": "Compute Period", "type": "main", "index": 0 }]] },
     "Compute Period": { "main": [[{ "node": "Config", "type": "main", "index": 0 }]] },
-    "Config": { "main": [[{ "node": "AI Agent", "type": "main", "index": 0 }]] },
+    "Config": { "main": [[{ "node": "Login", "type": "main", "index": 0 }]] },
+    "Login": { "main": [[{ "node": "Stats", "type": "main", "index": 0 }]] },
+    "Stats": { "main": [[{ "node": "Pageviews", "type": "main", "index": 0 }]] },
+    "Pageviews": { "main": [[{ "node": "Metrics path", "type": "main", "index": 0 }]] },
+    "Metrics path": { "main": [[{ "node": "Metrics referrer", "type": "main", "index": 0 }]] },
+    "Metrics referrer": { "main": [[{ "node": "Metrics country", "type": "main", "index": 0 }]] },
+    "Metrics country": { "main": [[{ "node": "Metrics channel", "type": "main", "index": 0 }]] },
+    "Metrics channel": { "main": [[{ "node": "Metrics device", "type": "main", "index": 0 }]] },
+    "Metrics device": { "main": [[{ "node": "Metrics event", "type": "main", "index": 0 }]] },
+    "Metrics event": { "main": [[{ "node": "Metrics path (prev)", "type": "main", "index": 0 }]] },
+    "Metrics path (prev)": { "main": [[{ "node": "Metrics referrer (prev)", "type": "main", "index": 0 }]] },
+    "Metrics referrer (prev)": { "main": [[{ "node": "Aggregate", "type": "main", "index": 0 }]] },
+    "Aggregate": { "main": [[{ "node": "AI Agent", "type": "main", "index": 0 }]] },
     "OpenAI Chat Model": { "ai_languageModel": [[{ "node": "AI Agent", "type": "ai_languageModel", "index": 0 }]] },
-    "Umami MCP Tool": { "ai_tool": [[{ "node": "AI Agent", "type": "ai_tool", "index": 0 }]] },
     "AI Agent": { "main": [[{ "node": "Sanitize HTML", "type": "main", "index": 0 }]] },
     "Sanitize HTML": { "main": [[{ "node": "Send Email", "type": "main", "index": 0 }]] }
   },
