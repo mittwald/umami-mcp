@@ -7,7 +7,7 @@ import {
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
-import { HOST, isUrlAllowed, isValidWebsiteId, loadConfig, UmamiCredentials } from './config.js';
+import { HOST, isUrlAllowed, loadConfig, UmamiCredentials } from './config.js';
 import { logger } from './logger.js';
 import { tools } from './tools.js';
 import { UmamiApiError, UmamiClient } from './umami-client.js';
@@ -27,9 +27,8 @@ function credentialsFromRequest(req: IncomingMessage): UmamiCredentials | null {
   const url = header(req, 'x-umami-url') ?? header(req, 'x-umami-host');
   const username = header(req, 'x-umami-username');
   const password = header(req, 'x-umami-password');
-  const defaultWebsiteId = header(req, 'x-umami-website-id');
   if (url && username && password) {
-    return { url: url.replace(/\/+$/, ''), username, password, defaultWebsiteId };
+    return { url: url.replace(/\/+$/, ''), username, password };
   }
   return null;
 }
@@ -179,19 +178,6 @@ const httpServer = createServer(async (req: IncomingMessage, res: ServerResponse
         mcpStatus = 403;
         logger.warn('credentials.url.rejected', { url: credentials.url });
         sendError(res, 403, 'Provided X-Umami-Url is not in the server allowlist.');
-        return;
-      }
-
-      if (
-        credentials.defaultWebsiteId !== undefined &&
-        !isValidWebsiteId(credentials.defaultWebsiteId)
-      ) {
-        mcpStatus = 400;
-        sendError(
-          res,
-          400,
-          'X-Umami-Website-Id must be a valid UUID (8-4-4-4-12 hex characters).',
-        );
         return;
       }
 

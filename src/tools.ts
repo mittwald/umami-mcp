@@ -17,23 +17,8 @@ const dateRangeShape = {
 };
 
 const websiteIdShape = {
-  websiteId: z
-    .string()
-    .optional()
-    .describe(
-      'Umami website ID (UUID). Optional if the server is configured with a default website ID via the X-Umami-Website-Id request header. Use list_websites to discover IDs.',
-    ),
+  websiteId: z.string().describe('Umami website ID (UUID). Use list_websites to discover IDs.'),
 };
-
-function resolveWebsiteId(client: UmamiClient, args: { websiteId?: string }): string {
-  const id = args.websiteId ?? client.defaultWebsiteId;
-  if (!id) {
-    throw new Error(
-      'No websiteId provided and no default configured. Pass websiteId in the tool arguments or set the X-Umami-Website-Id header on the MCP transport.',
-    );
-  }
-  return id;
-}
 
 export type ToolDefinition = {
   name: string;
@@ -66,10 +51,9 @@ export const tools: ToolDefinition[] = [
       'Aggregate stats for a website: pageviews, visitors, visits, bounces, total time. Includes comparison vs previous period.',
     inputSchema: z.object({ ...websiteIdShape, ...dateRangeShape }),
     handler: async (client, args) => {
-      const { websiteId, ...rest } = args as { websiteId?: string };
-      const id = resolveWebsiteId(client, { websiteId });
+      const { websiteId, ...rest } = args as { websiteId: string };
       const range = timeRange(rest as Parameters<typeof timeRange>[0]);
-      return client.request(`/api/websites/${id}/stats`, { query: range });
+      return client.request(`/api/websites/${websiteId}/stats`, { query: range });
     },
   },
   {
@@ -87,13 +71,12 @@ export const tools: ToolDefinition[] = [
     }),
     handler: async (client, args) => {
       const { websiteId, unit, timezone, ...rest } = args as {
-        websiteId?: string;
+        websiteId: string;
         unit?: string;
         timezone?: string;
       };
-      const id = resolveWebsiteId(client, { websiteId });
       const range = timeRange(rest as Parameters<typeof timeRange>[0]);
-      return client.request(`/api/websites/${id}/pageviews`, {
+      return client.request(`/api/websites/${websiteId}/pageviews`, {
         query: { ...range, unit: unit ?? 'day', timezone: timezone ?? 'UTC' },
       });
     },
@@ -137,13 +120,12 @@ export const tools: ToolDefinition[] = [
     }),
     handler: async (client, args) => {
       const { websiteId, type, limit, ...rest } = args as {
-        websiteId?: string;
+        websiteId: string;
         type: string;
         limit?: number;
       };
-      const id = resolveWebsiteId(client, { websiteId });
       const range = timeRange(rest as Parameters<typeof timeRange>[0]);
-      return client.request(`/api/websites/${id}/metrics`, {
+      return client.request(`/api/websites/${websiteId}/metrics`, {
         query: { ...range, type, limit: limit ?? 10 },
       });
     },
@@ -153,8 +135,8 @@ export const tools: ToolDefinition[] = [
     description: 'Number of currently active visitors on a website (real-time).',
     inputSchema: z.object({ ...websiteIdShape }),
     handler: async (client, args) => {
-      const id = resolveWebsiteId(client, args as { websiteId?: string });
-      return client.request(`/api/websites/${id}/active`);
+      const { websiteId } = args as { websiteId: string };
+      return client.request(`/api/websites/${websiteId}/active`);
     },
   },
   {
@@ -163,8 +145,8 @@ export const tools: ToolDefinition[] = [
       'Real-time stream of pageviews, sessions, events, and visitor counts from the last few minutes. Use to answer "what is happening right now" — richer than get_active_visitors.',
     inputSchema: z.object({ ...websiteIdShape }),
     handler: async (client, args) => {
-      const id = resolveWebsiteId(client, args as { websiteId?: string });
-      return client.request(`/api/realtime/${id}`);
+      const { websiteId } = args as { websiteId: string };
+      return client.request(`/api/realtime/${websiteId}`);
     },
   },
   {
@@ -180,14 +162,13 @@ export const tools: ToolDefinition[] = [
     }),
     handler: async (client, args) => {
       const { websiteId, pageSize, page, search, ...rest } = args as {
-        websiteId?: string;
+        websiteId: string;
         pageSize?: number;
         page?: number;
         search?: string;
       };
-      const id = resolveWebsiteId(client, { websiteId });
       const range = timeRange(rest as Parameters<typeof timeRange>[0]);
-      return client.request(`/api/websites/${id}/sessions`, {
+      return client.request(`/api/websites/${websiteId}/sessions`, {
         query: { ...range, pageSize: pageSize ?? 50, page, search },
       });
     },
@@ -201,9 +182,8 @@ export const tools: ToolDefinition[] = [
       sessionId: z.string().describe('Umami session ID.'),
     }),
     handler: async (client, args) => {
-      const { websiteId, sessionId } = args as { websiteId?: string; sessionId: string };
-      const id = resolveWebsiteId(client, { websiteId });
-      return client.request(`/api/websites/${id}/sessions/${sessionId}`);
+      const { websiteId, sessionId } = args as { websiteId: string; sessionId: string };
+      return client.request(`/api/websites/${websiteId}/sessions/${sessionId}`);
     },
   },
 ];
